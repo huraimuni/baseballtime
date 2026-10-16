@@ -437,7 +437,7 @@ input[type="number"], input[type="text"], input[type="url"], select {
   if (savedTarget) {
     targetEl.value = savedTarget;
   } else {
-    var def = new Date(); def.setDate(def.getDate() + 1); def.setHours(11, 0, 0, 0);
+    var def = new Date(); def.setDate(def.getDate() + 1); def.setHours(0, 0, 0, 0);
     targetEl.value = toInput(def);
     isExample = true;
   }
@@ -469,6 +469,7 @@ input[type="number"], input[type="text"], input[type="url"], select {
   function partsToTarget() {
     var v = partEls.map(function (e) { return parseInt(e.value, 10); });
     targetInvalid = false;
+    for (var q = 3; q < 6; q++) { if (isNaN(v[q])) v[q] = 0; }
     if (v.some(function (x) { return isNaN(x); })) { targetEl.value = ''; return; }
     var d = new Date(v[0], v[1] - 1, v[2], v[3], v[4], v[5]);
     if (d.getFullYear() !== v[0] || d.getMonth() !== v[1] - 1 || d.getDate() !== v[2] ||
