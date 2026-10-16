@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e3a2b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="예매카운트다운">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png" type="image/png">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>예매 카운트다운</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: phone-first single column. Scoreboard, quick toggles, then collapsible panels. */
+:root {
+  --bg: #eaefe8;
+  --surface: #f9fbf8;
+  --field: #ffffff;
+  --fg: #16221b;
+  --muted: #566559;
+  --line: #ccd6ca;
+  --board: #0e3a2b;
+  --board-edge: #0a2c20;
+  --board-fg: #ffc83d;
+  --board-soft: #cfe4d8;
+  --board-dim: #6f9f88;
+  --accent: #0e6b4b;
+  --on-accent: #ffffff;
+  --ok: #1b7a43;
+  --warn: #9a5b00;
+  --bad: #b3261e;
+  --focus: #1456d9;
+  --f-display: 'Black Han Sans', 'Noto Sans KR', sans-serif;
+  --f-body: 'Noto Sans KR', system-ui, -apple-system, 'Malgun Gothic', sans-serif;
+  --f-num: 'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1410;
+    --surface: #131f19;
+    --field: #0d1712;
+    --fg: #e3ede6;
+    --muted: #92a498;
+    --line: #26382e;
+    --board: #072016;
+    --board-edge: #0f3626;
+    --accent: #4fcf9a;
+    --on-accent: #06281b;
+    --ok: #5ad08b;
+    --warn: #f0b04a;
+    --bad: #ff8a80;
+    --focus: #7aa7ff;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1410;
+  --surface: #131f19;
+  --field: #0d1712;
+  --fg: #e3ede6;
+  --muted: #92a498;
+  --line: #26382e;
+  --board: #072016;
+  --board-edge: #0f3626;
+  --accent: #4fcf9a;
+  --on-accent: #06281b;
+  --ok: #5ad08b;
+  --warn: #f0b04a;
+  --bad: #ff8a80;
+  --focus: #7aa7ff;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-block: 16px 44px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-tap-highlight-color: transparent;
+}
+a { color: var(--accent); }
+button, .btn, .day, summary, label { touch-action: manipulation; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.head { display: flex; flex-direction: column; gap: 2px; }
+.eyebrow { margin: 0; font-size: .78rem; font-weight: 700; letter-spacing: .12em; color: var(--muted); }
+h1 { margin: 0; font-family: var(--f-display); font-weight: 400; font-size: clamp(1.6rem, 6vw, 2.2rem); line-height: 1.2; text-wrap: balance; }
+
+/* Top mini bar, shown when the scoreboard has scrolled out of view */
+.minibar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--board); color: var(--board-fg);
+  border-bottom: 1px solid var(--board-edge);
+  min-height: calc(44px + env(safe-area-inset-top, 0px));
+}
+.minibar .mb-t { font-family: var(--f-num); font-size: 1.5rem; letter-spacing: .03em; font-variant-numeric: tabular-nums; }
+.minibar .mb-p { font-size: .84rem; font-weight: 700; border: 1.5px solid currentColor; border-radius: 4px; padding: 1px 9px; }
+.minibar[data-phase="go"] { background: var(--board-fg); color: var(--board); }
+
+/* Scoreboard */
+.board {
+  --b-fg: var(--board-fg);
+  --b-soft: var(--board-soft);
+  --b-dim: var(--board-dim);
+  background: var(--board);
+  color: var(--b-fg);
+  border: 1px solid var(--board-edge);
+  border-radius: 10px;
+  padding: 14px clamp(14px, 4vw, 28px) 20px;
+  overflow: hidden;
+}
+.board::before {
+  content: "";
+  display: block;
+  height: 8px;
+  margin-bottom: 12px;
+  background: radial-gradient(circle, var(--b-dim) 2px, transparent 2.6px) 0 0 / 16px 8px repeat-x;
+  opacity: .55;
+}
+.board-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; }
+.target-label { font-size: .92rem; color: var(--b-soft); }
+.chip {
+  font-size: .82rem; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 10px; border: 1.5px solid currentColor; border-radius: 4px; color: var(--b-fg);
+}
+.clock {
+  display: flex; align-items: baseline; flex-wrap: nowrap; gap: .12em;
+  font-family: var(--f-num);
+  font-size: clamp(2.7rem, 14vw, 6.6rem);
+  line-height: 1.05;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+  margin: 12px 0 6px;
+  white-space: nowrap;
+  color: var(--b-fg);
+}
+.clock .day { font-family: var(--f-body); font-weight: 700; font-size: .32em; margin-right: .4em; color: var(--b-soft); }
+.clock .tenth { font-size: .42em; color: var(--b-dim); }
+.phase-msg { margin: 0; max-width: 60ch; color: var(--b-soft); font-size: 1rem; text-wrap: pretty; }
+
+.board[data-phase="soon"] .chip { background: var(--b-fg); color: var(--board); }
+.board[data-phase="go"] {
+  --b-fg: var(--board);
+  --b-soft: var(--board);
+  --b-dim: var(--board);
+  background: var(--board-fg);
+  border-color: var(--board-fg);
+}
+.board[data-phase="go"] .chip { background: var(--board); color: var(--board-fg); border-color: var(--board); }
+.board[data-phase="go"] .phase-msg { font-weight: 700; }
+.board[data-phase="go"] .clock { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .78; } }
+@media (prefers-reduced-motion: reduce) { .board[data-phase="go"] .clock { animation: none; } }
+
+/* Quick toggles */
+.quick { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.keep { margin: 0; }
+
+/* Buttons and fields */
+.btn {
+  font: inherit; font-weight: 700; font-size: .95rem; cursor: pointer; text-decoration: none; text-align: center;
+  border-radius: 6px; padding: 8px 14px; border: 1.5px solid var(--accent);
+  min-height: 46px; display: inline-flex; align-items: center; justify-content: center;
+}
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.btn[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.btn:disabled { opacity: .55; cursor: progress; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions .btn { flex: 1 1 140px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field label { font-size: .86rem; font-weight: 500; color: var(--muted); }
+.field .lbl { font-size: .86rem; font-weight: 500; color: var(--muted); }
+input[type="number"], input[type="text"], input[type="url"], select {
+  font: inherit; color: var(--fg); background: var(--field);
+  border: 1px solid var(--line); border-radius: 6px; padding: 10px 10px; min-width: 0; width: 100%; min-height: 46px;
+}
+.hint { margin: 0; font-size: .84rem; color: var(--muted); text-wrap: pretty; }
+
+/* Collapsible panels */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 12px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.panel summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 52px; padding: 0 16px; cursor: pointer; list-style: none;
+}
+.panel summary::-webkit-details-marker { display: none; }
+.panel summary::after {
+  content: ""; flex: none; width: .55rem; height: .55rem; margin: -.25rem 4px 0 8px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg);
+}
+.panel[open] summary::after { transform: rotate(-135deg); margin-top: .25rem; }
+.panel h2 { margin: 0; font-size: 1.05rem; font-weight: 700; display: flex; align-items: baseline; gap: 10px; flex: 1; }
+.count { font-family: var(--f-num); font-size: 1rem; color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.pbody { display: flex; flex-direction: column; gap: 14px; padding: 2px 16px 16px; }
+
+/* Open time entry */
+.tparts { display: grid; grid-template-columns: 1.5fr repeat(5, 1fr); gap: 6px; }
+.tp { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tp span { font-size: .78rem; text-align: center; }
+.tp input { padding: 8px 2px; text-align: center; font-family: var(--f-num); font-size: 1.15rem; -moz-appearance: textfield; appearance: textfield; }
+.tp input::-webkit-outer-spin-button, .tp input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Calendar */
+.cal { border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: var(--field); }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-weight: 700; }
+.cal-head .btn { padding: 2px 18px; font-size: 1.3rem; line-height: 1.3; min-height: 44px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-grid .dow { font-size: .78rem; color: var(--muted); padding: 2px 0; }
+.cal-grid .dow.sun, .cal-grid .day.sun { color: var(--bad); }
+.cal-grid .dow.sat, .cal-grid .day.sat { color: var(--focus); }
+.cal-grid .day { font: inherit; font-variant-numeric: tabular-nums; background: transparent; color: var(--fg); border: 1px solid transparent; border-radius: 6px; min-height: 42px; padding: 0; cursor: pointer; }
+.cal-grid .day.today { border-color: var(--accent); }
+.cal-grid .day.sel { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+
+/* Clock sync */
+.clk { display: grid; grid-template-columns: max-content max-content 1fr; gap: 8px 14px; align-items: baseline; }
+.clk .c-l { font-size: .86rem; font-weight: 500; color: var(--muted); }
+.clk .c-t { font-family: var(--f-num); font-size: 1.3rem; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.clk .c-d { font-size: .88rem; font-weight: 500; }
+.stepper { display: flex; gap: 6px; align-items: stretch; }
+.stepper .btn { flex: none; min-width: 3.2rem; padding: 8px 6px; }
+.stepper input { flex: 1 1 70px; text-align: center; font-family: var(--f-num); font-size: 1.15rem; }
+
+/* Auto checks */
+.checks { list-style: none; margin: 0; padding: 0; }
+.chk { display: grid; grid-template-columns: 1.5rem 1fr; column-gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); align-items: baseline; }
+.chk .mark { font-weight: 700; font-family: var(--f-num); text-align: center; }
+.chk .name { font-weight: 500; }
+.chk .val { grid-column: 2; font-size: .86rem; color: var(--muted); }
+.chk[data-s="ok"] .mark { color: var(--ok); }
+.chk[data-s="warn"] .mark { color: var(--warn); }
+.chk[data-s="bad"] .mark { color: var(--bad); }
+.chk[data-s="idle"] .mark { color: var(--muted); }
+
+/* Manual list */
+.todo { display: flex; flex-direction: column; }
+.todo label { display: flex; gap: 12px; align-items: center; padding: 12px 0; min-height: 52px; border-top: 1px solid var(--line); cursor: pointer; }
+.todo input { width: 1.4rem; height: 1.4rem; accent-color: var(--accent); flex: none; }
+.todo input:checked + span { color: var(--muted); }
+
+.seatgrid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.note { margin: 0; font-size: .84rem; color: var(--muted); max-width: 70ch; text-wrap: pretty; }
+
+@media (max-width: 600px) {
+  .pbody { padding-inline: 14px; }
+  .panel summary { padding: 0 14px; }
+}
+</style>
+
+</head>
+<body>
+<div class="minibar" id="minibar" data-phase="idle" hidden aria-hidden="true">
+  <span class="mb-t" id="mbT">--:--:--</span>
+  <span class="mb-p" id="mbP">시각 입력</span>
+</div>
+
+<main class="wrap">
+  <header class="head">
+    <p class="eyebrow">클릭은 내가, 준비는 미리</p>
+    <h1>예매 카운트다운</h1>
+  </header>
+
+  <section class="board" id="board" data-phase="idle" aria-label="카운트다운">
+    <div class="board-top">
+      <span class="target-label" id="targetLabel">오픈 시각 미설정</span>
+      <span class="chip" id="chip">시각 입력</span>
+    </div>
+    <div class="clock" role="timer" aria-label="오픈까지 남은 시간">
+      <span class="day" id="day" hidden></span><span id="hms">--:--:--</span><span class="tenth" id="tenth"></span>
+    </div>
+    <p class="phase-msg" id="phaseMsg"></p>
+  </section>
+
+  <div class="quick">
+    <button type="button" class="btn ghost" id="soundBtn" aria-pressed="false">소리 알림 켜기</button>
+    <button type="button" class="btn ghost" id="wakeBtn" aria-pressed="false">화면 꺼짐 방지</button>
+    <button type="button" class="btn ghost" id="testBtn">알림음 테스트</button>
+  </div>
+  <p class="hint keep">이 화면을 켜 둔 채로 쓰세요. 다른 앱이나 탭으로 넘어가면 폰이 알림을 멈출 수 있습니다. 예매는 PC나 다른 기기로 하고, 폰은 카운트다운용으로 두는 방식이 안전합니다.</p>
+
+  <div class="grid">
+    <details class="panel" id="pSet" open>
+      <summary><h2>오픈 시각과 예매처</h2></summary>
+      <div class="pbody">
+        <div class="field">
+          <span class="lbl" id="tl">오픈 시각 (숫자를 입력하면 바로 적용)</span>
+          <input id="target" type="hidden">
+          <div class="tparts" role="group" aria-labelledby="tl">
+            <label class="tp"><span>연</span><input id="tY" type="number" inputmode="numeric" min="2024" max="2100"></label>
+            <label class="tp"><span>월</span><input id="tM" type="number" inputmode="numeric" min="1" max="12"></label>
+            <label class="tp"><span>일</span><input id="tD" type="number" inputmode="numeric" min="1" max="31"></label>
+            <label class="tp"><span>시</span><input id="tH" type="number" inputmode="numeric" min="0" max="23"></label>
+            <label class="tp"><span>분</span><input id="tI" type="number" inputmode="numeric" min="0" max="59"></label>
+            <label class="tp"><span>초</span><input id="tS" type="number" inputmode="numeric" min="0" max="59"></label>
+          </div>
+          <div class="cal">
+            <div class="cal-head">
+              <button type="button" class="btn ghost" id="calPrev" aria-label="이전 달">‹</button>
+              <span id="calTitle" aria-live="polite"></span>
+              <button type="button" class="btn ghost" id="calNext" aria-label="다음 달">›</button>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn ghost" id="dToday">날짜를 오늘로</button>
+            <button type="button" class="btn ghost" id="dTomorrow">날짜를 내일로</button>
+          </div>
+          <p class="hint" id="targetHint"></p>
+        </div>
+        <div class="field">
+          <label for="site">예매처</label>
+          <select id="site">
+            <option value="https://www.ticketlink.co.kr/">티켓링크</option>
+            <option value="https://nol.interpark.com/ticket">NOL 티켓 (인터파크)</option>
+            <option value="https://ticket.yes24.com/">예스24 티켓</option>
+            <option value="custom">직접 입력</option>
+          </select>
+          <input id="customUrl" type="url" placeholder="https://" hidden aria-label="예매처 주소">
+          <a class="btn primary" id="openSite" href="https://www.ticketlink.co.kr/" target="_blank" rel="noopener">예매처 열기 (새 탭)</a>
+          <p class="hint">로그인과 예매 페이지 이동은 직접 하세요. 이 페이지는 열어 두기만 합니다.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" id="pClk" open>
+      <summary><h2>시계 맞추기</h2></summary>
+      <div class="pbody">
+        <div class="clk" aria-label="서버 시간과 내 시간 비교">
+          <span class="c-l">서버 기준</span><span class="c-t" id="srvClk">--:--:--.-</span><span class="c-d" id="srvDiff">기준 시각</span>
+          <span class="c-l">내 기기</span><span class="c-t" id="devClk">--:--:--.-</span><span class="c-d" id="devDiff">측정 전</span>
+          <span class="c-l">보정 적용</span><span class="c-t" id="adjClk">--:--:--.-</span><span class="c-d" id="adjDiff">측정 전</span>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="syncBtn">서버 시간 다시 가져오기</button>
+          <button type="button" class="btn ghost" id="applyBtn">서버 시간에 맞추기</button>
+          <button type="button" class="btn ghost" id="offsetReset">보정 0으로</button>
+        </div>
+        <p class="hint" id="syncStatus" aria-live="polite">측정 전</p>
+        <div class="field">
+          <label for="offset">보정값 (초). 내 시계가 느리면 +, 빠르면 −</label>
+          <div class="stepper">
+            <button type="button" class="btn ghost" data-d="-1" aria-label="1초 줄이기">−1</button>
+            <button type="button" class="btn ghost" data-d="-0.1" aria-label="0.1초 줄이기">−0.1</button>
+            <input id="offset" type="number" step="any" value="0" inputmode="decimal">
+            <button type="button" class="btn ghost" data-d="0.1" aria-label="0.1초 늘리기">+0.1</button>
+            <button type="button" class="btn ghost" data-d="1" aria-label="1초 늘리기">+1</button>
+          </div>
+        </div>
+        <p class="hint">위 서버 기준은 이 페이지를 제공하는 서버의 시계입니다. 예매처 서버 시계는 1초 안팎 다를 수 있어서, 각 예매처의 서버 시간은 아래 버튼으로 확인하세요 (time.navyism.com이 새 탭에서 열립니다).</p>
+        <div class="actions">
+          <a class="btn ghost" href="https://time.navyism.com/?host=www.ticketlink.co.kr" target="_blank" rel="noopener">티켓링크 서버 시간</a>
+          <a class="btn ghost" href="https://time.navyism.com/?host=nol.interpark.com" target="_blank" rel="noopener">NOL 티켓 서버 시간</a>
+          <a class="btn ghost" href="https://time.navyism.com/?host=ticket.yes24.com" target="_blank" rel="noopener">예스24 서버 시간</a>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" id="pAuto" open>
+      <summary><h2>자동 점검 <span class="count" id="autoCount">0/0</span></h2></summary>
+      <div class="pbody">
+        <ul class="checks" id="checks"></ul>
+        <p class="hint">알림음은 오픈 10분, 5분, 1분, 30초, 10초 전과 마지막 5초, 정각에 울립니다. 소리는 위의 "소리 알림 켜기"를 눌러야 나옵니다.</p>
+      </div>
+    </details>
+
+    <details class="panel" id="pManual" open>
+      <summary><h2>직접 확인 <span class="count" id="manCount">0/0</span></h2></summary>
+      <div class="pbody">
+        <div class="todo" id="todo">
+          <label><input type="checkbox" data-i="0"><span>예매처 로그인 완료 (오픈 10분 전까지)</span></label>
+          <label><input type="checkbox" data-i="1"><span>본인인증과 회원정보 최신 상태 확인</span></label>
+          <label><input type="checkbox" data-i="2"><span>결제수단 등록과 한도 확인</span></label>
+          <label><input type="checkbox" data-i="3"><span>구역 1·2·3순위 정하기</span></label>
+          <label><input type="checkbox" data-i="4"><span>예매 페이지를 열어 두고 대기 중</span></label>
+          <label><input type="checkbox" data-i="5"><span>기기 충전, 절전 해제, 다른 앱 종료</span></label>
+        </div>
+        <div class="actions"><button type="button" class="btn ghost" id="manReset">체크 초기화</button></div>
+      </div>
+    </details>
+
+    <details class="panel" id="pSeats" open>
+      <summary><h2>구역 메모</h2></summary>
+      <div class="pbody">
+        <div class="seatgrid">
+          <div class="field"><label for="s1">1순위</label><input id="s1" type="text" placeholder="예: 외야 지정석 상단"></div>
+          <div class="field"><label for="s2">2순위</label><input id="s2" type="text" placeholder="예: 3루 응원석 외곽"></div>
+          <div class="field"><label for="s3">3순위</label><input id="s3" type="text" placeholder="예: 1루 상단"></div>
+          <div class="field"><label for="party">인원</label><input id="party" type="text" placeholder="예: 2석 (연석 어려우면 1석씩)"></div>
+        </div>
+        <p class="hint">연석과 인기 구역에 몰릴수록 경쟁이 심합니다. 좌석이 이미 선택되었다고 나오면 바로 다음 순위로 넘어가세요.</p>
+      </div>
+    </details>
+  </div>
+
+  <p class="note">이 페이지는 시간을 알려 주고 준비 상태를 점검하기만 합니다. 로그인, 페이지 이동, 좌석 선택, 결제 클릭은 모두 직접 하세요. 입력한 값은 이 브라우저에만 저장됩니다.</p>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  function $(id) { return document.getElementById(id); }
+  var PFX = 'nine-countdown:';
+  function load(k, d) { try { var v = localStorage.getItem(PFX + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }
+  function save(k, v) { try { localStorage.setItem(PFX + k, JSON.stringify(v)); } catch (e) {} }
+  function pad(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+  function toInput(d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  }
+  var DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+  var targetEl = $('target'), offsetEl = $('offset'), board = $('board');
+  var targetMs = null, offsetSec = 0, soundOn = false, wantWake = false, wl = null, ctx = null;
+
+  /* ---------- 저장값 복원 ---------- */
+  var savedTarget = load('target', null);
+  var isExample = false;
+  if (savedTarget) {
+    targetEl.value = savedTarget;
+  } else {
+    var def = new Date(); def.setDate(def.getDate() + 1); def.setHours(11, 0, 0, 0);
+    targetEl.value = toInput(def);
+    isExample = true;
+  }
+  offsetSec = parseFloat(load('offset', 0)) || 0;
+  offsetEl.value = String(offsetSec);
+
+  function parseTarget() {
+    var v = targetEl.value;
+    var t = v ? new Date(v).getTime() : NaN;
+    targetMs = isNaN(t) ? null : t;
+    var h = $('targetHint');
+    h.textContent = targetInvalid ? '날짜나 시간이 올바르지 않습니다.' : (isExample ? '예시 시각입니다. 실제 오픈 시각으로 바꿔 주세요.' : '');
+    if (targetMs !== null) {
+      var d = new Date(targetMs);
+      $('targetLabel').textContent = (d.getMonth() + 1) + '월 ' + d.getDate() + '일(' + DOW[d.getDay()] + ') ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + ' 오픈';
+    } else {
+      $('targetLabel').textContent = '오픈 시각 미설정';
+    }
+    resetSignals();
+  }
+
+  /* ---------- 오픈 시각 입력 (연월일시분초 + 달력) ---------- */
+  var partEls = ['tY', 'tM', 'tD', 'tH', 'tI', 'tS'].map(function (id) { return $(id); });
+  var targetInvalid = false;
+  function fillParts() {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/.exec(targetEl.value || '');
+    for (var i = 0; i < 6; i++) partEls[i].value = m ? String(parseInt(m[i + 1] || '0', 10)) : '';
+  }
+  function partsToTarget() {
+    var v = partEls.map(function (e) { return parseInt(e.value, 10); });
+    targetInvalid = false;
+    if (v.some(function (x) { return isNaN(x); })) { targetEl.value = ''; return; }
+    var d = new Date(v[0], v[1] - 1, v[2], v[3], v[4], v[5]);
+    if (d.getFullYear() !== v[0] || d.getMonth() !== v[1] - 1 || d.getDate() !== v[2] ||
+        d.getHours() !== v[3] || d.getMinutes() !== v[4] || d.getSeconds() !== v[5]) {
+      targetInvalid = true; targetEl.value = ''; return;
+    }
+    targetEl.value = toInput(d);
+  }
+  function onParts() {
+    isExample = false;
+    partsToTarget();
+    if (targetEl.value) save('target', targetEl.value);
+    calShowSelected();
+    parseTarget();
+    tick();
+    refreshChecks();
+  }
+  var DOWN = ['일', '월', '화', '수', '목', '금', '토'];
+  var calY = new Date().getFullYear(), calM = new Date().getMonth();
+  function calRender() {
+    var grid = $('calGrid');
+    grid.textContent = '';
+    DOWN.forEach(function (n, i) {
+      var s = document.createElement('span');
+      s.className = 'dow' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '');
+      s.textContent = n;
+      grid.appendChild(s);
+    });
+    var first = new Date(calY, calM, 1).getDay();
+    var days = new Date(calY, calM + 1, 0).getDate();
+    for (var b = 0; b < first; b++) grid.appendChild(document.createElement('span'));
+    var td = new Date();
+    var sy = parseInt(partEls[0].value, 10), sm = parseInt(partEls[1].value, 10), sd = parseInt(partEls[2].value, 10);
+    for (var d = 1; d <= days; d++) {
+      var btn = document.createElement('button');
+      var dow = (first + d - 1) % 7;
+      btn.type = 'button';
+      btn.className = 'day' + (dow === 0 ? ' sun' : dow === 6 ? ' sat' : '');
+      if (td.getFullYear() === calY && td.getMonth() === calM && td.getDate() === d) btn.className += ' today';
+      if (sy === calY && sm === calM + 1 && sd === d) btn.className += ' sel';
+      btn.textContent = String(d);
+      btn.setAttribute('data-d', String(d));
+      btn.setAttribute('aria-label', calY + '년 ' + (calM + 1) + '월 ' + d + '일 ' + DOWN[dow] + '요일');
+      grid.appendChild(btn);
+    }
+    $('calTitle').textContent = calY + '년 ' + (calM + 1) + '월';
+  }
+  function calShowSelected() {
+    var y = parseInt(partEls[0].value, 10), m = parseInt(partEls[1].value, 10);
+    if (!isNaN(y) && !isNaN(m) && y >= 2000 && m >= 1 && m <= 12) { calY = y; calM = m - 1; }
+    calRender();
+  }
+  $('calGrid').addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (!t || !t.getAttribute || !t.getAttribute('data-d')) return;
+    partEls[0].value = calY; partEls[1].value = calM + 1; partEls[2].value = t.getAttribute('data-d');
+    onParts();
+  });
+  $('calPrev').addEventListener('click', function () { calM--; if (calM < 0) { calM = 11; calY--; } calRender(); });
+  $('calNext').addEventListener('click', function () { calM++; if (calM > 11) { calM = 0; calY++; } calRender(); });
+  partEls.forEach(function (e) { e.addEventListener('input', onParts); });
+  function setDay(plus) {
+    var d = new Date(); d.setDate(d.getDate() + plus);
+    partEls[0].value = d.getFullYear(); partEls[1].value = d.getMonth() + 1; partEls[2].value = d.getDate();
+    onParts();
+  }
+  $('dToday').addEventListener('click', function () { setDay(0); });
+  $('dTomorrow').addEventListener('click', function () { setDay(1); });
+  fillParts();
+  calShowSelected();
+
+  /* ---------- 시계 보정 ---------- */
+  var sync = null, syncing = false;
+  function setOffset(v) {
+    offsetSec = Math.round(v * 100) / 100;
+    offsetEl.value = String(offsetSec);
+    save('offset', offsetSec);
+    resetSignals();
+    tick();
+    refreshChecks();
+  }
+  offsetEl.addEventListener('input', function () {
+    offsetSec = parseFloat(offsetEl.value) || 0;
+    save('offset', offsetSec);
+    resetSignals();
+    tick();
+    refreshChecks();
+  });
+  $('offsetReset').addEventListener('click', function () { setOffset(0); });
+  Array.prototype.slice.call(document.querySelectorAll('.stepper [data-d]')).forEach(function (b) {
+    b.addEventListener('click', function () { setOffset(offsetSec + parseFloat(b.getAttribute('data-d'))); });
+  });
+  $('applyBtn').addEventListener('click', function () { if (sync) setOffset(sync.off / 1000); });
+  $('syncBtn').addEventListener('click', function () { runSync(); });
+
+  /* ---------- 서버 시간 측정 ---------- */
+  function fmtClock(ms) {
+    var d = new Date(ms);
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + '.' + Math.floor(d.getMilliseconds() / 100);
+  }
+  function diffText(ms) {
+    if (Math.abs(ms) < 50) return '일치';
+    return (Math.abs(ms) / 1000).toFixed(2) + '초 ' + (ms > 0 ? '느림' : '빠름');
+  }
+  function updateClockPanel() {
+    var w = Date.now();
+    $('devClk').textContent = fmtClock(w);
+    $('adjClk').textContent = fmtClock(w + offsetSec * 1000);
+    if (sync) {
+      $('srvClk').textContent = fmtClock(w + sync.off);
+      $('devDiff').textContent = diffText(sync.off);
+      $('adjDiff').textContent = diffText(sync.off - offsetSec * 1000);
+    } else {
+      $('srvClk').textContent = '--:--:--.-';
+      $('devDiff').textContent = '측정 전';
+      $('adjDiff').textContent = '측정 전';
+    }
+  }
+  function sampleOnce() {
+    return new Promise(function (resolve, reject) {
+      var t0 = performance.now(), w0 = Date.now();
+      fetch('ping.txt?_=' + w0 + Math.floor(Math.random() * 1e6), { cache: 'no-store' }).then(function (r) {
+        var t1 = performance.now();
+        var d = r.headers.get('date');
+        if (!d) { reject(new Error('no date')); return; }
+        var s = Date.parse(d);
+        if (isNaN(s)) { reject(new Error('bad date')); return; }
+        s += (parseInt(r.headers.get('age') || '0', 10) || 0) * 1000;
+        var rtt = t1 - t0;
+        resolve({ s: s, mid: w0 + rtt / 2, rtt: rtt });
+      }).catch(reject);
+    });
+  }
+  function runSync() {
+    if (syncing) return;
+    syncing = true;
+    var btn = $('syncBtn'), st = $('syncStatus');
+    btn.disabled = true;
+    var N = 12, i = 0, fails = 0, samples = [];
+    function finish() {
+      syncing = false; btn.disabled = false;
+      if (samples.length < 3) {
+        sync = null;
+        st.textContent = '서버 시간을 가져오지 못했습니다. 아래 링크의 사이트와 직접 비교해 보정값을 넣어 주세요.';
+        refreshChecks();
+        return;
+      }
+      samples.sort(function (a, b) { return a.rtt - b.rtt; });
+      var use = samples.slice(0, Math.min(8, samples.length));
+      var lo = -Infinity, hi = Infinity;
+      use.forEach(function (s) {
+        var l = s.s - s.mid - s.rtt / 2, h = s.s + 999 - s.mid + s.rtt / 2;
+        if (l > lo) lo = l;
+        if (h < hi) hi = h;
+      });
+      var off, prec;
+      if (lo <= hi) { off = (lo + hi) / 2; prec = (hi - lo) / 2; }
+      else {
+        var cs = use.map(function (s) { return s.s + 500 - s.mid; }).sort(function (a, b) { return a - b; });
+        off = cs[Math.floor(cs.length / 2)]; prec = 500;
+      }
+      sync = { off: off, prec: prec, at: Date.now() };
+      var t = new Date();
+      st.textContent = pad(t.getHours()) + ':' + pad(t.getMinutes()) + ':' + pad(t.getSeconds()) + ' 측정 완료 · 오차 범위 ±' + (prec / 1000).toFixed(2) + '초';
+      refreshChecks();
+    }
+    function step() {
+      if (i >= N) { finish(); return; }
+      st.textContent = '서버 시간 측정 중 ' + (i + 1) + '/' + N;
+      sampleOnce().then(function (s) { samples.push(s); }).catch(function () { fails++; }).then(function () {
+        i++;
+        if (fails >= 3 && samples.length === 0) { finish(); return; }
+        setTimeout(step, 70 + Math.random() * 180);
+      });
+    }
+    step();
+  }
+
+  /* ---------- 예매처 링크 ---------- */
+  var siteEl = $('site'), customEl = $('customUrl'), openEl = $('openSite');
+  siteEl.value = load('site', siteEl.options[0].value);
+  if (siteEl.value !== load('site', siteEl.options[0].value)) siteEl.selectedIndex = 0;
+  customEl.value = load('custom', '');
+  function updateSite() {
+    var isCustom = siteEl.value === 'custom';
+    customEl.hidden = !isCustom;
+    var url = isCustom ? customEl.value.trim() : siteEl.value;
+    var ok = /^https:\/\//i.test(url);
+    openEl.setAttribute('href', ok ? url : '#');
+    openEl.setAttribute('aria-disabled', ok ? 'false' : 'true');
+    save('site', siteEl.value); save('custom', customEl.value);
+  }
+  siteEl.addEventListener('change', updateSite);
+  customEl.addEventListener('input', updateSite);
+  updateSite();
+
+  /* ---------- 소리·진동 ---------- */
+  function ensureCtx() {
+    if (!ctx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); }
+    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+    return ctx;
+  }
+  function beep(freq, dur, gain, delay) {
+    if (!soundOn) return;
+    var c = ensureCtx(); if (!c) return;
+    var o = c.createOscillator(), g = c.createGain();
+    var t = c.currentTime + (delay || 0);
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain || 0.25, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function vibrate(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} }
+  var SIGNALS = { 600: 1, 300: 1, 60: 1, 30: 1, 10: 1, 5: 1, 4: 1, 3: 1, 2: 1, 1: 1 };
+  function signal(sec) {
+    if (sec >= 300) { beep(620, 0.25, 0.22); }
+    else if (sec >= 30) { beep(740, 0.18, 0.25); beep(740, 0.18, 0.25, 0.28); vibrate(120); }
+    else if (sec === 10) { beep(880, 0.22, 0.28); beep(880, 0.22, 0.28, 0.3); vibrate([120, 80, 120]); }
+    else { beep(880 + (5 - sec) * 70, 0.12, 0.3); vibrate(60); }
+  }
+  function go() { beep(1320, 1.0, 0.38); vibrate([300, 100, 300]); }
+
+  var soundBtn = $('soundBtn');
+  function setSound(on) {
+    soundOn = on;
+    soundBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    soundBtn.textContent = on ? '소리 알림 끄기' : '소리 알림 켜기';
+    if (on) { ensureCtx(); beep(660, 0.18, 0.22); }
+    save('sound', on);
+    refreshChecks();
+  }
+  soundBtn.addEventListener('click', function () { setSound(!soundOn); });
+  $('testBtn').addEventListener('click', function () {
+    if (!soundOn) setSound(true);
+    beep(880, 0.15, 0.3); beep(1100, 0.15, 0.3, 0.22); beep(1320, 0.5, 0.35, 0.44); vibrate([100, 60, 100]);
+  });
+
+  /* ---------- 화면 꺼짐 방지 ---------- */
+  var wakeBtn = $('wakeBtn');
+  function lockScreen() {
+    if (!navigator.wakeLock) { refreshChecks(); return; }
+    navigator.wakeLock.request('screen').then(function (l) {
+      wl = l;
+      l.addEventListener('release', function () { wl = null; refreshChecks(); });
+      refreshChecks();
+    }).catch(function () { wl = null; refreshChecks(); });
+  }
+  function setWake(on) {
+    wantWake = on;
+    wakeBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    wakeBtn.textContent = on ? '화면 꺼짐 방지 끄기' : '화면 꺼짐 방지';
+    if (on) lockScreen();
+    else if (wl) { try { wl.release(); } catch (e) {} wl = null; }
+    refreshChecks();
+  }
+  wakeBtn.addEventListener('click', function () { setWake(!wantWake); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && wantWake && !wl) lockScreen();
+    refreshChecks();
+  });
+  window.addEventListener('online', refreshChecks);
+  window.addEventListener('offline', refreshChecks);
+
+  /* ---------- 카운트다운 ---------- */
+  var PH = {
+    idle: ['시각 입력', '오픈 시각을 입력하면 카운트다운이 시작됩니다.'],
+    wait: ['대기 중', '오픈 10분 전까지 로그인, 결제수단 확인, 예매 페이지 열기를 끝내 두세요.'],
+    prep: ['준비 구간', '로그인이 유지되는지, 예매 페이지가 열려 있는지 지금 확인하세요.'],
+    ready: ['1분 전', '예매 버튼 위치를 눈으로 확인하고 손을 올려 두세요. 새로고침은 하지 않습니다.'],
+    soon: ['곧 오픈', '화면은 그대로 두고 정각을 기다리세요.'],
+    go: ['지금 클릭', '대기열이 나오면 창을 닫거나 새로고침하지 마세요. 1순위 구역부터 시도하세요.'],
+    past: ['오픈 지남', '오픈 시각이 지났습니다. 취소표는 결제 제한시간이 끝난 직후와 경기 전날, 당일에 풀리는 경우가 많습니다.']
+  };
+  function phaseOf(rem) {
+    if (rem === null) return 'idle';
+    if (rem > 600000) return 'wait';
+    if (rem > 60000) return 'prep';
+    if (rem > 10000) return 'ready';
+    if (rem > 0) return 'soon';
+    if (rem > -60000) return 'go';
+    return 'past';
+  }
+  function now() { return Date.now() + offsetSec * 1000; }
+
+  var prevRem = null, lastSec = null, fired = {};
+  function resetSignals() { prevRem = null; lastSec = null; fired = {}; }
+
+  var lastPhase = '';
+  function render(rem) {
+    var ph = phaseOf(rem);
+    if (ph !== lastPhase) {
+      board.setAttribute('data-phase', ph);
+      $('minibar').setAttribute('data-phase', ph);
+      $('chip').textContent = PH[ph][0];
+      $('mbP').textContent = PH[ph][0];
+      $('phaseMsg').textContent = PH[ph][1];
+      lastPhase = ph;
+    }
+    if (rem === null) {
+      $('hms').textContent = '--:--:--'; $('mbT').textContent = '--:--:--';
+      $('tenth').textContent = ''; $('day').hidden = true;
+      return;
+    }
+    var neg = rem < 0;
+    var t = Math.abs(rem);
+    var d = Math.floor(t / 864e5); t -= d * 864e5;
+    var h = Math.floor(t / 36e5); t -= h * 36e5;
+    var m = Math.floor(t / 6e4); t -= m * 6e4;
+    var s = Math.floor(t / 1e3); t -= s * 1e3;
+    var tenth = Math.floor(t / 100);
+    var dayEl = $('day');
+    if (d > 0) { dayEl.hidden = false; dayEl.textContent = d + '일'; } else { dayEl.hidden = true; }
+    var hms = (neg ? '+' : '') + pad(h) + ':' + pad(m) + ':' + pad(s);
+    $('hms').textContent = hms;
+    $('mbT').textContent = (d > 0 ? d + '일 ' : '') + hms;
+    $('tenth').textContent = '.' + tenth;
+  }
+
+  function tick() {
+    var rem = targetMs === null ? null : targetMs - now();
+    updateClockPanel();
+    render(rem);
+    if (rem === null) { prevRem = null; lastSec = null; return; }
+    var sec = rem > 0 ? Math.ceil(rem / 1000) : 0;
+    if (prevRem !== null) {
+      if (prevRem > 0 && rem <= 0) { go(); }
+      else if (rem > 0 && sec !== lastSec && SIGNALS[sec] && !fired[sec]) { fired[sec] = true; signal(sec); }
+    }
+    prevRem = rem; lastSec = sec;
+  }
+
+  /* ---------- 자동 점검 ---------- */
+  var CHECKS = [
+    ['net', '인터넷 연결'],
+    ['speed', '회선 상태'],
+    ['vis', '이 탭 표시'],
+    ['time', '오픈 시각 설정'],
+    ['offset', '시계 보정'],
+    ['sound', '소리 알림'],
+    ['wake', '화면 꺼짐 방지']
+  ];
+  var MARK = { ok: '✓', warn: '!', bad: '×', idle: '–' };
+  var checkRefs = {};
+  (function buildChecks() {
+    var ul = $('checks');
+    CHECKS.forEach(function (c) {
+      var li = document.createElement('li'); li.className = 'chk'; li.setAttribute('data-s', 'idle');
+      var mk = document.createElement('span'); mk.className = 'mark'; mk.setAttribute('aria-hidden', 'true');
+      var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = c[1];
+      var vl = document.createElement('span'); vl.className = 'val';
+      li.appendChild(mk); li.appendChild(nm); li.appendChild(vl); ul.appendChild(li);
+      checkRefs[c[0]] = { li: li, mk: mk, vl: vl };
+    });
+  })();
+
+  function brief(ms) {
+    var s = Math.floor(ms / 1000);
+    var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    if (d > 0) return d + '일 ' + h + '시간 남음';
+    if (h > 0) return h + '시간 ' + m + '분 남음';
+    if (m > 0) return m + '분 ' + (s % 60) + '초 남음';
+    return s + '초 남음';
+  }
+
+  function refreshChecks() {
+    var r = {};
+    r.net = navigator.onLine ? ['ok', '연결됨'] : ['bad', '연결이 끊겼습니다'];
+    var c = navigator.connection;
+    if (!c) { r.speed = ['idle', '브라우저가 회선 정보를 알려 주지 않습니다']; }
+    else {
+      var txt = (c.effectiveType ? c.effectiveType.toUpperCase() : '알 수 없음') + (c.downlink ? ' · 약 ' + c.downlink + 'Mbps' : '');
+      if (c.saveData) { r.speed = ['warn', txt + ' · 데이터 절약 켜짐']; }
+      else if (c.effectiveType === '4g' || !c.effectiveType) { r.speed = ['ok', txt]; }
+      else { r.speed = ['warn', txt + ' · 느린 회선']; }
+    }
+    r.vis = document.visibilityState === 'visible' ? ['ok', '화면에 표시 중'] : ['warn', '백그라운드, 알림이 늦을 수 있음'];
+    if (targetMs === null) { r.time = ['warn', '오픈 시각을 입력하세요']; }
+    else {
+      var rem = targetMs - now();
+      r.time = rem > 0 ? ['ok', brief(rem)] : ['warn', '이미 지난 시각입니다'];
+    }
+    if (sync) {
+      var resid = sync.off - offsetSec * 1000;
+      r.offset = Math.abs(resid) <= 300
+        ? ['ok', '서버 시간과 ' + (Math.abs(resid) / 1000).toFixed(2) + '초 이내로 일치']
+        : ['warn', '서버와 ' + (Math.abs(resid) / 1000).toFixed(2) + '초 차이, "서버 시간에 맞추기"를 누르세요'];
+    } else {
+      r.offset = offsetSec !== 0
+        ? ['ok', '직접 입력한 보정 ' + (offsetSec > 0 ? '+' : '') + offsetSec + '초 (서버와 비교 안 함)']
+        : ['warn', '서버 시간과 비교하지 못했습니다'];
+    }
+    r.sound = (soundOn && ctx && ctx.state === 'running') ? ['ok', '켜짐'] : ['warn', '꺼짐, 위의 버튼으로 켜세요'];
+    if (!navigator.wakeLock) { r.wake = ['idle', '이 브라우저는 지원하지 않습니다']; }
+    else { r.wake = wl ? ['ok', '켜짐'] : ['warn', '꺼짐, 위의 버튼으로 켜세요']; }
+
+    var okN = 0, total = 0;
+    CHECKS.forEach(function (cc) {
+      var k = cc[0], ref = checkRefs[k], v = r[k];
+      ref.li.setAttribute('data-s', v[0]);
+      ref.mk.textContent = MARK[v[0]];
+      ref.vl.textContent = v[1];
+      if (v[0] !== 'idle') { total++; if (v[0] === 'ok') okN++; }
+    });
+    $('autoCount').textContent = okN + '/' + total;
+  }
+
+  /* ---------- 직접 확인 · 구역 메모 ---------- */
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('#todo input[type="checkbox"]'));
+  var saved = load('manual', []);
+  boxes.forEach(function (b, i) { b.checked = !!saved[i]; });
+  function manCount() {
+    var n = boxes.filter(function (b) { return b.checked; }).length;
+    $('manCount').textContent = n + '/' + boxes.length;
+  }
+  boxes.forEach(function (b) {
+    b.addEventListener('change', function () { save('manual', boxes.map(function (x) { return x.checked; })); manCount(); });
+  });
+  $('manReset').addEventListener('click', function () {
+    boxes.forEach(function (b) { b.checked = false; });
+    save('manual', []); manCount();
+  });
+  manCount();
+
+  ['s1', 's2', 's3', 'party'].forEach(function (id) {
+    var el = $(id);
+    el.value = load('seat-' + id, '');
+    el.addEventListener('input', function () { save('seat-' + id, el.value); });
+  });
+
+  /* ---------- 폰 화면: 보조 패널은 접어 두고, 카운트다운이 가려지면 상단 바 표시 ---------- */
+  try {
+    if (window.matchMedia && window.matchMedia('(max-width: 600px)').matches) {
+      ['pManual', 'pSeats'].forEach(function (id) { $(id).removeAttribute('open'); });
+    }
+  } catch (e) {}
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (es) { $('minibar').hidden = es[0].isIntersecting; }, { threshold: 0 }).observe(board);
+  }
+
+  /* ---------- 시작 ---------- */
+  parseTarget();
+  setSound(false);
+  tick();
+  refreshChecks();
+  setInterval(tick, 50);
+  setInterval(refreshChecks, 1000);
+  runSync();
+})();
+</script>
+</body>
+</html>
