@@ -596,7 +596,6 @@ input[type="number"], input[type="text"], input[type="url"], select {
         if (!d) { reject(new Error('no date')); return; }
         var s = Date.parse(d);
         if (isNaN(s)) { reject(new Error('bad date')); return; }
-        s += (parseInt(r.headers.get('age') || '0', 10) || 0) * 1000;
         var rtt = t1 - t0;
         resolve({ s: s, mid: w0 + rtt / 2, rtt: rtt });
       }).catch(reject);
